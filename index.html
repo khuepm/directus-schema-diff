@@ -517,6 +517,109 @@
       background: var(--added-bg);
       border-radius: 0 0 12px 12px;
     }
+
+    /* ===== SHARE BUTTON ===== */
+    .btn-share {
+      padding: 10px 20px;
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'Inter', sans-serif;
+      text-decoration: none;
+    }
+    .btn-share:hover {
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+      background: var(--accent-blue-dim);
+      transform: translateY(-1px);
+    }
+    .btn-share:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn-share.saving {
+      border-color: var(--modified);
+      color: var(--modified);
+    }
+
+    /* ===== SHARE BANNER (readonly mode) ===== */
+    .share-banner {
+      background: linear-gradient(135deg, #1f3a5f, #2d1f4f);
+      border-bottom: 1px solid #2d4a7f;
+      padding: 12px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+    }
+    .share-banner .share-meta { color: var(--text-secondary); }
+    .share-banner strong { color: var(--text-primary); }
+    .share-banner .btn-new {
+      margin-left: auto;
+      padding: 7px 16px;
+      background: transparent;
+      border: 1px solid var(--accent-blue);
+      color: var(--accent-blue);
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      transition: all 0.2s;
+    }
+    .share-banner .btn-new:hover {
+      background: var(--accent-blue-dim);
+    }
+
+    /* ===== TOAST ===== */
+    .toast {
+      position: fixed;
+      bottom: 32px;
+      right: 32px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      font-size: 14px;
+      color: var(--text-primary);
+      box-shadow: var(--shadow);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 300px;
+      transform: translateY(80px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    .toast.success { border-left: 3px solid var(--added); }
+    .toast.error { border-left: 3px solid var(--removed); }
+    .toast-copy {
+      margin-left: auto;
+      padding: 4px 12px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-size: 12px;
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-family: 'Inter', sans-serif;
+      transition: all 0.2s;
+    }
+    .toast-copy:hover { color: var(--text-primary); border-color: var(--accent-blue); }
   </style>
 </head>
 <body>
@@ -566,7 +669,7 @@
 </div>
 
 <!-- ACTIONS -->
-<div class="action-bar">
+<div class="action-bar" id="actionBar">
   <button class="btn-compare" id="compareBtn" onclick="runCompare()" disabled>
     ⚡ So sánh Schema
   </button>
@@ -583,6 +686,21 @@
     <span class="search-icon">🔎</span>
     <input type="text" class="search-input" id="searchInput" placeholder="Tìm theo tên..." oninput="applySearch(this.value)" />
   </div>
+
+  <!-- Share button (hiện sau khi có kết quả) -->
+  <button class="btn-share" id="shareBtn" onclick="saveAndShare()" style="display:none">
+    🔗 Tạo link chia sẻ
+  </button>
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="toast">
+  <span id="toastIcon">✅</span>
+  <div>
+    <div id="toastMsg" style="font-weight:600"></div>
+    <div id="toastUrl" style="font-size:12px;color:var(--text-muted);margin-top:2px;word-break:break-all"></div>
+  </div>
+  <button class="toast-copy" id="toastCopyBtn" onclick="copyShareUrl()" style="display:none">Copy</button>
 </div>
 
 <!-- RESULTS -->
@@ -604,6 +722,8 @@ const state = {
   result: null,
   currentFilter: 'all',
   currentSearch: '',
+  shareUrl: null,
+  isSharedView: false,
 };
 
 // ========================================
@@ -885,6 +1005,16 @@ function runCompare() {
       document.getElementById('headerStats').style.display = 'flex';
       document.getElementById('filterTabs').style.display = 'flex';
       document.getElementById('searchBox').style.display = 'block';
+
+      // Show share button, reset to default state
+      const shareBtn = document.getElementById('shareBtn');
+      shareBtn.style.display = 'flex';
+      shareBtn.innerHTML = '🔗 Tạo link chia sẻ';
+      shareBtn.onclick = saveAndShare;
+      shareBtn.disabled = false;
+      shareBtn.classList.remove('saving');
+      state.shareUrl = null;
+      _shareUrl = null;
 
       renderResults();
     } catch (err) {
@@ -1231,12 +1361,167 @@ function applySearch(val) {
   state.currentSearch = val;
   renderResults();
 }
+
+// ========================================
+// SHARE FEATURE
+// ========================================
+let _shareUrl = null; // current generated URL for copy
+
+/**
+ * Called when user clicks "Tạo link chia sẻ"
+ * Saves diff to Firestore and shows a shareable URL
+ */
+async function saveAndShare() {
+  if (!state.result || !window.__saveToFirestore) {
+    showToast('error', '⚠️', 'Firestore chưa sẵn sàng, thử lại sau.');
+    return;
+  }
+
+  const btn = document.getElementById('shareBtn');
+  btn.disabled = true;
+  btn.classList.add('saving');
+  btn.innerHTML = '⏳ Đang lưu...';
+
+  try {
+    const { schemaDiff, componentsDiff } = state.result;
+
+    // Only save changed items to minimize Firestore document size
+    const payload = {
+      schemaDiff: schemaDiff.filter(d => d.status !== 'same'),
+      componentsDiff: componentsDiff
+        .filter(d => d.status !== 'same')
+        .map(d => ({
+          ...d,
+          fieldDiffs: (d.fieldDiffs || []).filter(f => f.status !== 'same')
+        })),
+      stats: {
+        schemaTotal: schemaDiff.length,
+        componentsTotal: componentsDiff.length,
+        added: [...schemaDiff, ...componentsDiff].filter(d => d.status === 'added').length,
+        removed: [...schemaDiff, ...componentsDiff].filter(d => d.status === 'removed').length,
+        modified: [...schemaDiff, ...componentsDiff].filter(d => d.status === 'modified').length,
+      },
+      createdAt: new Date().toISOString(),
+    };
+
+    const id = await window.__saveToFirestore(payload);
+    const url = `${location.origin}${location.pathname}?id=${id}`;
+    state.shareUrl = url;
+    _shareUrl = url;
+
+    // Update button to "copy" state
+    btn.innerHTML = '✅ Đã tạo link';
+    btn.disabled = false;
+    btn.classList.remove('saving');
+    btn.onclick = copyShareUrl;
+
+    showToast('success', '🔗', 'Link chia sẻ đã sẵn sàng!', url);
+
+    if (window.__trackCompare) window.__trackCompare();
+  } catch (err) {
+    btn.disabled = false;
+    btn.classList.remove('saving');
+    btn.innerHTML = '🔗 Tạo link chia sẻ';
+    showToast('error', '❌', 'Lỗi khi lưu: ' + err.message);
+  }
+}
+
+function copyShareUrl() {
+  const url = _shareUrl || state.shareUrl;
+  if (!url) return;
+  navigator.clipboard.writeText(url).then(() => {
+    showToast('success', '📋', 'Đã copy link vào clipboard!');
+  });
+}
+
+// ========================================
+// TOAST
+// ========================================
+let _toastTimer;
+function showToast(type, icon, msg, url) {
+  const el = document.getElementById('toast');
+  const iconEl = document.getElementById('toastIcon');
+  const msgEl = document.getElementById('toastMsg');
+  const urlEl = document.getElementById('toastUrl');
+  const copyBtn = document.getElementById('toastCopyBtn');
+
+  el.className = 'toast ' + type;
+  iconEl.textContent = icon;
+  msgEl.textContent = msg;
+  urlEl.textContent = url || '';
+  copyBtn.style.display = url ? 'block' : 'none';
+
+  void el.offsetWidth; // reflow to reset animation
+  el.classList.add('show');
+
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), url ? 8000 : 3000);
+}
+
+// ========================================
+// LOAD SHARED VIEW
+// ========================================
+
+/**
+ * Show results from a pre-loaded Firestore snapshot (shared view)
+ */
+function renderSharedView(data, docId) {
+  state.isSharedView = true;
+
+  // Insert share banner BEFORE header actions
+  const bannerHtml = `
+    <div class="share-banner" id="shareBanner">
+      <span>🔗</span>
+      <span class="share-meta">
+        <strong>Chế độ xem chia sẻ</strong> —
+        Tạo lúc ${new Date(data.createdAt).toLocaleString('vi-VN')}
+      </span>
+      <span class="badge badge-added" style="margin-left:8px">${data.stats?.added || 0} Added</span>
+      <span class="badge badge-removed">${data.stats?.removed || 0} Removed</span>
+      <span class="badge badge-modified">${data.stats?.modified || 0} Modified</span>
+      <button class="btn-new" onclick="location.href=location.pathname">➕ So sánh mới</button>
+    </div>
+  `;
+  document.querySelector('header').insertAdjacentHTML('afterend', bannerHtml);
+
+  // Hide upload + action bar
+  document.querySelector('.upload-container').style.display = 'none';
+  document.getElementById('actionBar').style.display = 'none';
+
+  // Rebuild result with only changed items
+  state.result = {
+    schemaDiff: data.schemaDiff || [],
+    componentsDiff: data.componentsDiff || [],
+  };
+
+  // Show header stats
+  document.getElementById('badgeAdded').textContent = (data.stats?.added || 0) + ' Added';
+  document.getElementById('badgeRemoved').textContent = (data.stats?.removed || 0) + ' Removed';
+  document.getElementById('badgeModified').textContent = (data.stats?.modified || 0) + ' Modified';
+  document.getElementById('headerStats').style.display = 'flex';
+
+  // Force show only changed (same items not stored in shared view)
+  state.currentFilter = 'all';
+  state.currentSearch = '';
+
+  renderResults();
+}
+
+// Expose to window so Firebase module (type=module scope) can call it
+window.renderSharedView = renderSharedView;
 </script>
 
-<!-- Firebase Analytics -->
+<!-- Firebase (Analytics + Firestore) -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
   import { getAnalytics, logEvent } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-analytics.js";
+  import {
+    getFirestore,
+    collection,
+    addDoc,
+    getDoc,
+    doc
+  } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDdydCKllu7uH-FjBNqyI5QnhnXT9Yak-4",
@@ -1250,9 +1535,38 @@ function applySearch(val) {
 
   const app = initializeApp(firebaseConfig);
   const analytics = getAnalytics(app);
+  const db = getFirestore(app);
 
-  // Track schema compare event
+  // Track compare event
   window.__trackCompare = () => logEvent(analytics, 'schema_compared');
+
+  // Save diff to Firestore → returns doc ID
+  window.__saveToFirestore = async (payload) => {
+    const ref = await addDoc(collection(db, 'diffs'), payload);
+    return ref.id;
+  };
+
+  // Load diff from Firestore by ID
+  window.__loadFromFirestore = async (id) => {
+    const snap = await getDoc(doc(db, 'diffs', id));
+    if (!snap.exists()) throw new Error('Không tìm thấy bản so sánh này.');
+    return snap.data();
+  };
+
+  // ── Auto-load from URL ?id=<docId> ──
+  const urlParams = new URLSearchParams(location.search);
+  const sharedId = urlParams.get('id');
+  if (sharedId) {
+    document.getElementById('results').innerHTML =
+      '<div class="loading"><div class="spinner"></div>Đang tải bản so sánh được chia sẻ...</div>';
+    try {
+      const data = await window.__loadFromFirestore(sharedId);
+      window.renderSharedView(data, sharedId);
+    } catch (err) {
+      document.getElementById('results').innerHTML =
+        `<div class="empty-hint"><div class="emoji">⚠️</div><h3>Không tìm thấy</h3><p>${err.message}</p></div>`;
+    }
+  }
 </script>
 </body>
 </html>
