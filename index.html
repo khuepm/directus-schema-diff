@@ -1550,13 +1550,13 @@ async function saveAndShare() {
       createdAt: new Date().toISOString(),
     };
 
-    const id = await window.__saveToFirestore(payload);
+    const { id, isNew } = await window.__saveToFirestore(payload);
     const url = `${location.origin}${location.pathname}?id=${id}`;
     state.shareUrl = url;
     _shareUrl = url;
 
     // Update button to "copy" state
-    btn.innerHTML = '✅ Đã tạo link';
+    btn.innerHTML = isNew ? '✅ Link mới' : '♻️ Link cũ (tái sử dụng)';
     btn.disabled = false;
     btn.classList.remove('saving');
     btn.onclick = copyShareUrl;
@@ -1566,9 +1566,10 @@ async function saveAndShare() {
     urlInput.value = url;
     document.getElementById('shareUrlBar').style.display = 'block';
 
-    showToast('success', '🔗', 'Link chia sẻ đã sẵn sàng!', url);
+    const msg = isNew ? 'Link chia sẻ đã được tạo mới!' : 'Bản so sánh này đã tồn tại, tái sử dụng link cũ!';
+    showToast('success', isNew ? '🔗' : '♻️', msg, url);
 
-    if (window.__trackCompare) window.__trackCompare();
+    if (isNew && window.__trackCompare) window.__trackCompare();
   } catch (err) {
     btn.disabled = false;
     btn.classList.remove('saving');
@@ -1689,9 +1690,8 @@ window.renderSharedView = renderSharedView;
   import { getAnalytics, logEvent } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-analytics.js";
   import {
     getFirestore,
-    collection,
-    addDoc,
     getDoc,
+    setDoc,
     doc
   } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
 
@@ -1712,10 +1712,31 @@ window.renderSharedView = renderSharedView;
   // Track compare event
   window.__trackCompare = () => logEvent(analytics, 'schema_compared');
 
+  // ── Compute SHA-256 hash of diff content (content-based deduplication) ──
+  async function hashPayload(schemaDiff, componentsDiff) {
+    const input = JSON.stringify({ schemaDiff, componentsDiff });
+    const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+    return Array.from(new Uint8Array(buffer))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('')
+      .slice(0, 32); // 32 hex chars = 128 bits, unique enough
+  }
+
   // Save diff to Firestore → returns doc ID
+  // If same content already exists, returns existing ID (no new write)
   window.__saveToFirestore = async (payload) => {
-    const ref = await addDoc(collection(db, 'diffs'), payload);
-    return ref.id;
+    const hash = await hashPayload(payload.schemaDiff, payload.componentsDiff);
+    const docRef = doc(db, 'diffs', hash);
+
+    // Check if already exists → skip write, return same link
+    const existing = await getDoc(docRef);
+    if (existing.exists()) {
+      return { id: hash, isNew: false };
+    }
+
+    // First time → save to Firestore with hash as document ID
+    await setDoc(docRef, payload);
+    return { id: hash, isNew: true };
   };
 
   // Load diff from Firestore by ID
