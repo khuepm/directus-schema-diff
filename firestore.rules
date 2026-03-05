@@ -1,0 +1,25 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Collection: diffs — lưu kết quả so sánh schema để chia sẻ
+    match /diffs/{diffId} {
+      // Ai cũng có thể đọc (xem link được chia sẻ)
+      allow read: if true;
+
+      // Ai cũng có thể tạo mới (lưu bản so sánh)
+      // Kiểm tra document không quá 500KB để tránh abuse
+      allow create: if request.resource.data.keys().hasAll(['schemaDiff', 'componentsDiff', 'createdAt'])
+                    && request.resource.size() < 524288;
+
+      // Không ai được sửa hoặc xóa
+      allow update, delete: if false;
+    }
+
+    // Chặn tất cả các collection khác
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
