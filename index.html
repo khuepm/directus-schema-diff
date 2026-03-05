@@ -1232,5 +1232,27 @@ function applySearch(val) {
   renderResults();
 }
 </script>
+
+<!-- Firebase Analytics -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
+  import { getAnalytics, logEvent } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-analytics.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDdydCKllu7uH-FjBNqyI5QnhnXT9Yak-4",
+    authDomain: "directus-schema-diff.firebaseapp.com",
+    projectId: "directus-schema-diff",
+    storageBucket: "directus-schema-diff.firebasestorage.app",
+    messagingSenderId: "66854289402",
+    appId: "1:66854289402:web:ad075ea1b988f5c1c5ee43",
+    measurementId: "G-3X9DWMQ4J0"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+
+  // Track schema compare event
+  window.__trackCompare = () => logEvent(analytics, 'schema_compared');
+</script>
 </body>
 </html>
