@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Directus Schema Diff Viewer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --bg-tertiary: #21262d;
+      --bg-hover: #30363d;
+      --border: #30363d;
+      --border-muted: #21262d;
+      --text-primary: #e6edf3;
+      --text-secondary: #8b949e;
+      --text-muted: #6e7681;
+      --accent-blue: #58a6ff;
+      --accent-blue-dim: #1f6feb33;
+      --added: #3fb950;
+      --added-bg: #0d2a0d;
+      --added-line: #1a3a1a;
+      --removed: #f85149;
+      --removed-bg: #2a0d0d;
+      --removed-line: #3a1a1a;
+      --modified: #d29922;
+      --modified-bg: #2a1f0d;
+      --modified-line: #3a2a1a;
+      --schema-color: #79c0ff;
+      --components-color: #d2a8ff;
+      --shadow: 0 8px 32px rgba(0,0,0,0.4);
+      --radius: 8px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ===== HEADER ===== */
+    header {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #58a6ff, #d2a8ff);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .logo-text {
+      font-size: 18px;
+      font-weight: 700;
+      background: linear-gradient(90deg, #58a6ff, #d2a8ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .logo-sub {
+      color: var(--text-muted);
+      font-size: 12px;
+      margin-top: 1px;
+    }
+
+    .header-actions {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .badge {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .badge-added { background: #0d2a0d; color: var(--added); border: 1px solid #1a3a1a; }
+    .badge-removed { background: #2a0d0d; color: var(--removed); border: 1px solid #3a1a1a; }
+    .badge-modified { background: #2a1f0d; color: var(--modified); border: 1px solid #3a2a1a; }
+
+    /* ===== UPLOAD ZONE ===== */
+    .upload-container {
+      display: flex;
+      gap: 24px;
+      padding: 32px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .upload-panel {
+      flex: 1;
+      background: var(--bg-secondary);
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .upload-panel::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, transparent, rgba(88,166,255,0.03));
+      pointer-events: none;
+    }
+
+    .upload-panel:hover, .upload-panel.drag-over {
+      border-color: var(--accent-blue);
+      background: var(--bg-tertiary);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(88,166,255,0.1);
+    }
+
+    .upload-panel.source { border-color: #30363d; }
+    .upload-panel.target { border-color: #30363d; }
+    .upload-panel.source.has-file { border-color: #58a6ff; border-style: solid; }
+    .upload-panel.target.has-file { border-color: #d2a8ff; border-style: solid; }
+
+    .upload-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+
+    .upload-label {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+    .upload-panel.source .upload-label { color: var(--schema-color); }
+    .upload-panel.target .upload-label { color: var(--components-color); }
+
+    .upload-hint {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+
+    .file-status {
+      font-size: 13px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .file-status.no-file { background: var(--bg-tertiary); color: var(--text-muted); }
+    .file-status.loaded-source { background: #1f3a5f; color: var(--schema-color); }
+    .file-status.loaded-target { background: #2d1f4f; color: var(--components-color); }
+
+    input[type="file"] { display: none; }
+
+    /* ===== COMPARE BUTTON ===== */
+    .action-bar {
+      padding: 0 32px 32px;
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .btn-compare {
+      padding: 14px 32px;
+      background: linear-gradient(135deg, #1f6feb, #6f42c1);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .btn-compare:hover:not(:disabled) {
+      background: linear-gradient(135deg, #388bfd, #8957e5);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(31, 111, 235, 0.4);
+    }
+
+    .btn-compare:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .filter-tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 4px;
+    }
+
+    .filter-tab {
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      transition: all 0.2s;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .filter-tab.active {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    .filter-tab:hover:not(.active) {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    /* ===== RESULTS ===== */
+    #results {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 32px 32px;
+    }
+
+    /* ===== SECTION HEADER ===== */
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding: 20px 24px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px 12px 0 0;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s;
+    }
+
+    .section-header:hover { background: var(--bg-tertiary); }
+
+    .section-icon {
+      font-size: 20px;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .section-title.schema { color: var(--schema-color); }
+    .section-title.components { color: var(--components-color); }
+
+    .section-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .section-stats {
+      margin-left: auto;
+      display: flex;
+      gap: 8px;
+    }
+
+    .chevron {
+      color: var(--text-muted);
+      transition: transform 0.3s;
+      margin-left: 8px;
+    }
+    .chevron.open { transform: rotate(180deg); }
+
+    /* ===== DIFF TABLE ===== */
+    .diff-section {
+      margin-bottom: 32px;
+    }
+
+    .diff-body {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 12px 12px;
+      overflow: hidden;
+    }
+
+    .diff-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+    }
+
+    .diff-table th {
+      padding: 12px 20px;
+      text-align: left;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      background: var(--bg-tertiary);
+      border-bottom: 1px solid var(--border);
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+    }
+
+    .diff-table td {
+      padding: 12px 20px;
+      vertical-align: top;
+      line-height: 1.6;
+      border-bottom: 1px solid var(--border-muted);
+    }
+
+    .diff-table tr:last-child td { border-bottom: none; }
+
+    .diff-table tr.added td { background: var(--added-bg); }
+    .diff-table tr.removed td { background: var(--removed-bg); }
+    .diff-table tr.modified td { background: var(--modified-bg); }
+    .diff-table tr.same td { background: transparent; opacity: 0.4; }
+
+    .diff-table tr:hover td { filter: brightness(1.1); }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      font-family: 'Inter', sans-serif;
+      white-space: nowrap;
+    }
+    .status-pill.added { background: #0d2a0d; color: var(--added); border: 1px solid #1a3a1a; }
+    .status-pill.removed { background: #2a0d0d; color: var(--removed); border: 1px solid #3a1a1a; }
+    .status-pill.modified { background: #2a1f0d; color: var(--modified); border: 1px solid #3a2a1a; }
+    .status-pill.same { background: var(--bg-tertiary); color: var(--text-muted); border: 1px solid var(--border); }
+
+    .key-name {
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .key-type {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .key-type.source { color: var(--removed); }
+    .key-type.target { color: var(--added); }
+
+    .type-value {
+      max-width: 400px;
+      word-break: break-all;
+    }
+    .type-value .removed-val { color: var(--removed); background: #3a1a1a; padding: 1px 4px; border-radius: 3px; }
+    .type-value .added-val { color: var(--added); background: #1a3a1a; padding: 1px 4px; border-radius: 3px; }
+
+    /* ===== EMPTY STATE ===== */
+    .empty-hint {
+      text-align: center;
+      padding: 64px 32px;
+      color: var(--text-muted);
+    }
+    .empty-hint .emoji { font-size: 56px; margin-bottom: 16px; }
+    .empty-hint h3 { font-size: 20px; color: var(--text-secondary); margin-bottom: 8px; }
+
+    /* ===== SUMMARY CARDS ===== */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .summary-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: all 0.2s;
+    }
+
+    .summary-card:hover { border-color: var(--bg-hover); background: var(--bg-tertiary); }
+
+    .summary-icon {
+      font-size: 32px;
+    }
+
+    .summary-count {
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .summary-label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .card-added .summary-count { color: var(--added); }
+    .card-removed .summary-count { color: var(--removed); }
+    .card-modified .summary-count { color: var(--modified); }
+
+    /* ===== SEARCH ===== */
+    .search-box {
+      position: relative;
+      margin-left: auto;
+    }
+
+    .search-input {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px 8px 36px;
+      color: var(--text-primary);
+      font-size: 13px;
+      width: 220px;
+      font-family: 'Inter', sans-serif;
+      transition: all 0.2s;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+      background: var(--bg-secondary);
+      width: 280px;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* ===== LOADING ===== */
+    .loading {
+      text-align: center;
+      padding: 48px;
+      color: var(--text-secondary);
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent-blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      .upload-container { flex-direction: column; padding: 16px; }
+      .action-bar { padding: 0 16px 16px; flex-wrap: wrap; }
+      #results { padding: 0 16px 16px; }
+      .summary-grid { grid-template-columns: 1fr; }
+      .diff-table { font-size: 11px; }
+      .diff-table td { padding: 8px 12px; }
+    }
+
+    .hidden { display: none !important; }
+
+    /* ===== COLLAPSIBLE ===== */
+    .diff-body { overflow: hidden; transition: max-height 0.4s ease; }
+
+    /* ===== NO DIFF ===== */
+    .no-diff-msg {
+      padding: 32px;
+      text-align: center;
+      color: var(--added);
+      font-size: 15px;
+      background: var(--added-bg);
+      border-radius: 0 0 12px 12px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🔍</div>
+    <div>
+      <div class="logo-text">Directus Schema Diff</div>
+      <div class="logo-sub">So sánh cấu hình giữa các môi trường</div>
+    </div>
+  </div>
+  <div class="header-actions" id="headerStats" style="display:none">
+    <span class="badge badge-added" id="badgeAdded">0 Added</span>
+    <span class="badge badge-removed" id="badgeRemoved">0 Removed</span>
+    <span class="badge badge-modified" id="badgeModified">0 Modified</span>
+  </div>
+</header>
+
+<!-- UPLOAD -->
+<div class="upload-container">
+  <!-- SOURCE -->
+  <div class="upload-panel source" id="sourcePanel" onclick="document.getElementById('sourceFile').click()">
+    <input type="file" id="sourceFile" accept=".ts,.js,.txt" onchange="handleFile('source', this)" />
+    <div class="upload-icon">📄</div>
+    <div class="upload-label">File Nguồn (Source)</div>
+    <div class="upload-hint">Môi trường cơ sở / Production schema</div>
+    <div class="file-status no-file" id="sourceStatus">
+      <span>📁</span> Chưa chọn file
+    </div>
+  </div>
+
+  <!-- ARROW -->
+  <div style="display:flex;align-items:center;color:var(--text-muted);font-size:28px;padding:0 8px">→</div>
+
+  <!-- TARGET -->
+  <div class="upload-panel target" id="targetPanel" onclick="document.getElementById('targetFile').click()">
+    <input type="file" id="targetFile" accept=".ts,.js,.txt" onchange="handleFile('target', this)" />
+    <div class="upload-icon">📄</div>
+    <div class="upload-label">File Đích (Target)</div>
+    <div class="upload-hint">Môi trường cần kiểm tra / Staging schema</div>
+    <div class="file-status no-file" id="targetStatus">
+      <span>📁</span> Chưa chọn file
+    </div>
+  </div>
+</div>
+
+<!-- ACTIONS -->
+<div class="action-bar">
+  <button class="btn-compare" id="compareBtn" onclick="runCompare()" disabled>
+    ⚡ So sánh Schema
+  </button>
+
+  <div class="filter-tabs" id="filterTabs" style="display:none">
+    <button class="filter-tab active" onclick="applyFilter('all', this)">Tất cả</button>
+    <button class="filter-tab" onclick="applyFilter('added', this)">✅ Added</button>
+    <button class="filter-tab" onclick="applyFilter('removed', this)">❌ Removed</button>
+    <button class="filter-tab" onclick="applyFilter('modified', this)">✏️ Modified</button>
+    <button class="filter-tab" onclick="applyFilter('same', this)">〰️ Same</button>
+  </div>
+
+  <div class="search-box" id="searchBox" style="display:none">
+    <span class="search-icon">🔎</span>
+    <input type="text" class="search-input" id="searchInput" placeholder="Tìm theo tên..." oninput="applySearch(this.value)" />
+  </div>
+</div>
+
+<!-- RESULTS -->
+<div id="results">
+  <div class="empty-hint" id="emptyHint">
+    <div class="emoji">📋</div>
+    <h3>Upload 2 file schema.ts để bắt đầu so sánh</h3>
+    <p>Công cụ sẽ phân tích <strong>type Schema</strong> và <strong>interface components</strong></p>
+  </div>
+</div>
+
+<script>
+// ========================================
+// STATE
+// ========================================
+const state = {
+  source: null,
+  target: null,
+  result: null,
+  currentFilter: 'all',
+  currentSearch: '',
+};
+
+// ========================================
+// FILE HANDLING
+// ========================================
+function handleFile(type, input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    state[type] = e.target.result;
+    const panel = document.getElementById(type + 'Panel');
+    const status = document.getElementById(type + 'Status');
+
+    panel.classList.add('has-file');
+    status.className = 'file-status loaded-' + type;
+    status.innerHTML = `<span>✅</span> ${file.name} (${formatSize(file.size)})`;
+
+    checkReady();
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + 'B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + 'KB';
+  return (bytes / 1048576).toFixed(1) + 'MB';
+}
+
+function checkReady() {
+  const btn = document.getElementById('compareBtn');
+  btn.disabled = !(state.source && state.target);
+}
+
+// ========================================
+// DRAG & DROP
+// ========================================
+['sourcePanel', 'targetPanel'].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('drag-over'); });
+  el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+  el.addEventListener('drop', e => {
+    e.preventDefault();
+    el.classList.remove('drag-over');
+    const type = id === 'sourcePanel' ? 'source' : 'target';
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      const input = document.getElementById(type + 'File');
+      // Simulate file selection for existing handler
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+      handleFile(type, input);
+    }
+  });
+});
+
+// ========================================
+// PARSE SCHEMA
+// ========================================
+
+/**
+ * Extract "export type Schema = { ... };" block
+ * Returns a dict of { key: typeValue }
+ */
+function parseSchemaType(content) {
+  const result = {};
+  // Find "export type Schema = {"
+  const startMatch = content.match(/export\s+type\s+Schema\s*=\s*\{/);
+  if (!startMatch) return result;
+
+  let idx = startMatch.index + startMatch[0].length;
+  let depth = 1;
+  let body = '';
+
+  while (idx < content.length && depth > 0) {
+    const ch = content[idx];
+    if (ch === '{') depth++;
+    else if (ch === '}') { depth--; if (depth === 0) break; }
+    body += ch;
+    idx++;
+  }
+
+  // Parse each line: "  key: Type;"
+  const lines = body.split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) continue;
+    // Match: key: value;
+    const m = trimmed.match(/^(\w+)\s*:\s*(.+?);?\s*$/);
+    if (m) {
+      result[m[1].trim()] = m[2].trim().replace(/;$/, '');
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Extract "export interface components { schemas: { ... } }"
+ * Returns a dict of { SchemaName: fieldsText }
+ */
+function parseComponentsSchemas(content) {
+  const result = {};
+
+  // Find "export interface components {"
+  const startMatch = content.match(/export\s+interface\s+components\s*\{/);
+  if (!startMatch) return result;
+
+  let idx = startMatch.index + startMatch[0].length;
+  let depth = 1;
+  let body = '';
+
+  while (idx < content.length && depth > 0) {
+    const ch = content[idx];
+    if (ch === '{') depth++;
+    else if (ch === '}') { depth--; if (depth === 0) break; }
+    body += ch;
+    idx++;
+  }
+
+  // Now find "schemas: {" inside body
+  const schemasMatch = body.match(/schemas\s*:\s*\{/);
+  if (!schemasMatch) return result;
+
+  let sIdx = schemasMatch.index + schemasMatch[0].length;
+  let sDepth = 1;
+  let schemasBody = '';
+
+  while (sIdx < body.length && sDepth > 0) {
+    const ch = body[sIdx];
+    if (ch === '{') sDepth++;
+    else if (ch === '}') { sDepth--; if (sDepth === 0) break; }
+    schemasBody += ch;
+    sIdx++;
+  }
+
+  // Parse each top-level key in schemasBody
+  // Keys are like: ItemsFoo: { ... };
+  let i = 0;
+  while (i < schemasBody.length) {
+    // Skip whitespace/comments
+    if (schemasBody[i] === ' ' || schemasBody[i] === '\n' || schemasBody[i] === '\r' || schemasBody[i] === '\t') {
+      i++; continue;
+    }
+    // Check for comment
+    if (schemasBody[i] === '/' && schemasBody[i+1] === '/') {
+      while (i < schemasBody.length && schemasBody[i] !== '\n') i++;
+      continue;
+    }
+    if (schemasBody[i] === '/' && schemasBody[i+1] === '*') {
+      while (i < schemasBody.length - 1 && !(schemasBody[i] === '*' && schemasBody[i+1] === '/')) i++;
+      i += 2; continue;
+    }
+
+    // Try to match identifier
+    const nameMatch = schemasBody.slice(i).match(/^(\w+)\s*:\s*/);
+    if (!nameMatch) { i++; continue; }
+
+    const schemaName = nameMatch[1];
+    i += nameMatch[0].length;
+
+    // Now read the value (could be { ... } or a simple type)
+    let valueText = '';
+    if (schemasBody[i] === '{') {
+      let d = 0;
+      let vStart = i;
+      while (i < schemasBody.length) {
+        if (schemasBody[i] === '{') d++;
+        else if (schemasBody[i] === '}') { d--; if (d === 0) { i++; break; } }
+        i++;
+      }
+      valueText = schemasBody.slice(vStart, i).trim();
+    } else {
+      // Simple type until semicolon or newline
+      let vStart = i;
+      while (i < schemasBody.length && schemasBody[i] !== ';' && schemasBody[i] !== '\n') i++;
+      valueText = schemasBody.slice(vStart, i).trim();
+    }
+
+    // Skip semicolons
+    while (i < schemasBody.length && (schemasBody[i] === ';' || schemasBody[i] === ',')) i++;
+
+    // Extract fields from the schema body for field-level diff
+    result[schemaName] = extractSchemaFields(valueText);
+  }
+
+  return result;
+}
+
+/**
+ * From a "{...}" block, extract top-level field names and their types
+ */
+function extractSchemaFields(block) {
+  if (!block.startsWith('{')) return { _raw: block };
+
+  const fields = {};
+  const inner = block.slice(1, block.length - 1);
+
+  let i = 0;
+  while (i < inner.length) {
+    // Skip whitespace
+    if (/\s/.test(inner[i])) { i++; continue; }
+    // Skip comments
+    if (inner[i] === '/' && inner[i+1] === '/') {
+      while (i < inner.length && inner[i] !== '\n') i++;
+      continue;
+    }
+    if (inner[i] === '/' && inner[i+1] === '*') {
+      while (i < inner.length - 1 && !(inner[i] === '*' && inner[i+1] === '/')) i++;
+      i += 2; continue;
+    }
+
+    // Match field name (including optional ?)
+    const fieldMatch = inner.slice(i).match(/^(\w+)\??\s*:\s*/);
+    if (!fieldMatch) { i++; continue; }
+
+    const fieldName = fieldMatch[1];
+    i += fieldMatch[0].length;
+
+    // Read value
+    let valueText = '';
+    let depth = 0;
+    let inStr = false;
+    let strChar = '';
+
+    while (i < inner.length) {
+      const ch = inner[i];
+      if (!inStr && (ch === '"' || ch === "'")) { inStr = true; strChar = ch; }
+      else if (inStr && ch === strChar && inner[i-1] !== '\\') { inStr = false; }
+      else if (!inStr) {
+        if (ch === '{' || ch === '(' || ch === '[') depth++;
+        else if (ch === '}' || ch === ')' || ch === ']') {
+          if (depth === 0) break;
+          depth--;
+        }
+        else if (ch === ';' && depth === 0) { i++; break; }
+      }
+      valueText += ch;
+      i++;
+    }
+
+    fields[fieldName] = valueText.trim().replace(/,\s*$/, '').replace(/;\s*$/, '');
+  }
+
+  return fields;
+}
+
+// ========================================
+// COMPARE LOGIC
+// ========================================
+function runCompare() {
+  const resultsEl = document.getElementById('results');
+  resultsEl.innerHTML = '<div class="loading"><div class="spinner"></div>Đang phân tích...</div>';
+
+  setTimeout(() => {
+    try {
+      const sourceSchema = parseSchemaType(state.source);
+      const targetSchema = parseSchemaType(state.target);
+      const sourceComponents = parseComponentsSchemas(state.source);
+      const targetComponents = parseComponentsSchemas(state.target);
+
+      const schemaDiff = diffObjects(sourceSchema, targetSchema);
+      const componentsDiff = diffComponentsSchemas(sourceComponents, targetComponents);
+
+      state.result = { schemaDiff, componentsDiff };
+
+      // Count totals
+      const allDiffs = [...schemaDiff, ...componentsDiff];
+      const added = allDiffs.filter(d => d.status === 'added').length;
+      const removed = allDiffs.filter(d => d.status === 'removed').length;
+      const modified = allDiffs.filter(d => d.status === 'modified').length;
+
+      // Update badges
+      document.getElementById('badgeAdded').textContent = added + ' Added';
+      document.getElementById('badgeRemoved').textContent = removed + ' Removed';
+      document.getElementById('badgeModified').textContent = modified + ' Modified';
+      document.getElementById('headerStats').style.display = 'flex';
+      document.getElementById('filterTabs').style.display = 'flex';
+      document.getElementById('searchBox').style.display = 'block';
+
+      renderResults();
+    } catch (err) {
+      resultsEl.innerHTML = `<div class="empty-hint"><div class="emoji">⚠️</div><h3>Lỗi phân tích</h3><p>${err.message}</p></div>`;
+    }
+  }, 50);
+}
+
+/**
+ * Compare two flat dicts (Schema type)
+ */
+function diffObjects(source, target) {
+  const diff = [];
+  const allKeys = new Set([...Object.keys(source), ...Object.keys(target)]);
+
+  for (const key of [...allKeys].sort()) {
+    const hasSource = key in source;
+    const hasTarget = key in target;
+
+    if (!hasSource) {
+      diff.push({ key, status: 'added', sourceVal: null, targetVal: target[key] });
+    } else if (!hasTarget) {
+      diff.push({ key, status: 'removed', sourceVal: source[key], targetVal: null });
+    } else if (source[key] !== target[key]) {
+      diff.push({ key, status: 'modified', sourceVal: source[key], targetVal: target[key] });
+    } else {
+      diff.push({ key, status: 'same', sourceVal: source[key], targetVal: target[key] });
+    }
+  }
+
+  return diff;
+}
+
+/**
+ * Compare components schemas (nested field-level diff)
+ */
+function diffComponentsSchemas(source, target) {
+  const diff = [];
+  const allKeys = new Set([...Object.keys(source), ...Object.keys(target)]);
+
+  for (const key of [...allKeys].sort()) {
+    const hasSource = key in source;
+    const hasTarget = key in target;
+
+    if (!hasSource) {
+      diff.push({ key, status: 'added', sourceVal: null, targetVal: formatFields(target[key]), fieldDiffs: [] });
+    } else if (!hasTarget) {
+      diff.push({ key, status: 'removed', sourceVal: formatFields(source[key]), targetVal: null, fieldDiffs: [] });
+    } else {
+      // Both exist — compare fields
+      const fieldDiffs = diffObjectsFields(source[key], target[key]);
+      const hasChanges = fieldDiffs.some(f => f.status !== 'same');
+      diff.push({
+        key,
+        status: hasChanges ? 'modified' : 'same',
+        sourceVal: formatFields(source[key]),
+        targetVal: formatFields(target[key]),
+        fieldDiffs,
+      });
+    }
+  }
+
+  return diff;
+}
+
+function diffObjectsFields(sourceFields, targetFields) {
+  // Handle _raw case
+  if (sourceFields._raw !== undefined || targetFields._raw !== undefined) {
+    const sv = sourceFields._raw || JSON.stringify(sourceFields);
+    const tv = targetFields._raw || JSON.stringify(targetFields);
+    return sv === tv ? [{ key: '(raw)', status: 'same', sourceVal: sv, targetVal: tv }]
+                     : [{ key: '(raw)', status: 'modified', sourceVal: sv, targetVal: tv }];
+  }
+
+  const diff = [];
+  const allKeys = new Set([...Object.keys(sourceFields), ...Object.keys(targetFields)]);
+  for (const k of [...allKeys].sort()) {
+    const hasS = k in sourceFields;
+    const hasT = k in targetFields;
+    if (!hasS) diff.push({ key: k, status: 'added', sourceVal: null, targetVal: targetFields[k] });
+    else if (!hasT) diff.push({ key: k, status: 'removed', sourceVal: sourceFields[k], targetVal: null });
+    else if (sourceFields[k] !== targetFields[k]) diff.push({ key: k, status: 'modified', sourceVal: sourceFields[k], targetVal: targetFields[k] });
+    else diff.push({ key: k, status: 'same', sourceVal: sourceFields[k], targetVal: targetFields[k] });
+  }
+  return diff;
+}
+
+function formatFields(fields) {
+  if (!fields) return '';
+  if (fields._raw) return fields._raw;
+  return Object.entries(fields).map(([k, v]) => `${k}: ${v}`).join('\n');
+}
+
+// ========================================
+// RENDER
+// ========================================
+function renderResults() {
+  if (!state.result) return;
+  const { schemaDiff, componentsDiff } = state.result;
+  const filter = state.currentFilter;
+  const search = state.currentSearch.toLowerCase();
+
+  const filterFn = (items) => items.filter(item => {
+    if (filter !== 'all' && item.status !== filter) return false;
+    if (search && !item.key.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  const filteredSchema = filterFn(schemaDiff);
+  const filteredComponents = filterFn(componentsDiff);
+
+  const resultsEl = document.getElementById('results');
+
+  // Summary
+  const allDiffs = [...schemaDiff, ...componentsDiff];
+  const totalAdded = allDiffs.filter(d => d.status === 'added').length;
+  const totalRemoved = allDiffs.filter(d => d.status === 'removed').length;
+  const totalModified = allDiffs.filter(d => d.status === 'modified').length;
+
+  resultsEl.innerHTML = `
+    <div class="summary-grid">
+      <div class="summary-card card-added">
+        <div class="summary-icon">✅</div>
+        <div>
+          <div class="summary-count">${totalAdded}</div>
+          <div class="summary-label">Collections / Fields được thêm</div>
+        </div>
+      </div>
+      <div class="summary-card card-removed">
+        <div class="summary-icon">❌</div>
+        <div>
+          <div class="summary-count">${totalRemoved}</div>
+          <div class="summary-label">Collections / Fields bị xóa</div>
+        </div>
+      </div>
+      <div class="summary-card card-modified">
+        <div class="summary-icon">✏️</div>
+        <div>
+          <div class="summary-count">${totalModified}</div>
+          <div class="summary-label">Collections / Fields thay đổi</div>
+        </div>
+      </div>
+    </div>
+
+    ${renderSection('schema', 'type Schema', 'Danh sách collections trong Schema', filteredSchema, false)}
+    ${renderSection('components', 'interface components { schemas }', 'Định nghĩa chi tiết từng schema/collection', filteredComponents, true)}
+  `;
+}
+
+function renderSection(type, title, desc, items, showFieldDiff) {
+  const added = items.filter(i => i.status === 'added').length;
+  const removed = items.filter(i => i.status === 'removed').length;
+  const modified = items.filter(i => i.status === 'modified').length;
+
+  const statsHtml = `
+    ${added > 0 ? `<span class="badge badge-added">+${added}</span>` : ''}
+    ${removed > 0 ? `<span class="badge badge-removed">-${removed}</span>` : ''}
+    ${modified > 0 ? `<span class="badge badge-modified">~${modified}</span>` : ''}
+  `;
+
+  let bodyHtml = '';
+  if (items.length === 0) {
+    bodyHtml = `<div class="no-diff-msg">✅ Không có sự khác biệt (hoặc không có kết quả khớp filter)</div>`;
+  } else if (!showFieldDiff) {
+    // Simple table for Schema type
+    bodyHtml = `
+      <table class="diff-table">
+        <thead>
+          <tr>
+            <th style="width:180px">Trạng thái</th>
+            <th>Collection / Key</th>
+            <th>Source (file nguồn)</th>
+            <th>Target (file đích)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map(item => renderSchemaRow(item)).join('')}
+        </tbody>
+      </table>
+    `;
+  } else {
+    // Accordion for components
+    bodyHtml = items.map(item => renderComponentItem(item)).join('');
+  }
+
+  return `
+    <div class="diff-section">
+      <div class="section-header" onclick="toggleSection('sec-${type}')">
+        <span class="section-icon">${type === 'schema' ? '📦' : '🧩'}</span>
+        <div>
+          <div class="section-title ${type}">${title}</div>
+          <div class="section-desc">${desc} — ${items.length} items</div>
+        </div>
+        <div class="section-stats">${statsHtml}</div>
+        <span class="chevron open" id="chevron-sec-${type}">▼</span>
+      </div>
+      <div class="diff-body" id="sec-${type}">
+        ${bodyHtml}
+      </div>
+    </div>
+  `;
+}
+
+function renderSchemaRow(item) {
+  const pill = `<span class="status-pill ${item.status}">${statusIcon(item.status)} ${item.status}</span>`;
+
+  const sourceVal = item.sourceVal
+    ? `<code style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-secondary)">${escHtml(item.sourceVal)}</code>`
+    : '<span style="color:var(--text-muted);font-style:italic">—</span>';
+
+  const targetVal = item.targetVal
+    ? `<code style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-secondary)">${escHtml(item.targetVal)}</code>`
+    : '<span style="color:var(--text-muted);font-style:italic">—</span>';
+
+  return `
+    <tr class="${item.status}">
+      <td>${pill}</td>
+      <td><span class="key-name">${escHtml(item.key)}</span></td>
+      <td class="type-value">${sourceVal}</td>
+      <td class="type-value">${targetVal}</td>
+    </tr>
+  `;
+}
+
+function renderComponentItem(item) {
+  const pill = `<span class="status-pill ${item.status}">${statusIcon(item.status)} ${item.status}</span>`;
+  const uid = 'comp-' + item.key.replace(/[^a-zA-Z0-9]/g, '_');
+
+  let fieldRows = '';
+  if (item.fieldDiffs && item.fieldDiffs.length > 0) {
+    const changedFields = item.fieldDiffs.filter(f => f.status !== 'same');
+    const sameFields = item.fieldDiffs.filter(f => f.status === 'same');
+
+    if (changedFields.length === 0) {
+      fieldRows = `<tr><td colspan="4" style="color:var(--text-muted);font-style:italic;text-align:center;padding:16px">Không có thay đổi về fields</td></tr>`;
+    } else {
+      fieldRows = changedFields.map(f => {
+        return `
+          <tr class="${f.status}" style="background: transparent;">
+            <td style="padding:8px 20px;width:120px"><span class="status-pill ${f.status}" style="font-size:10px">${statusIcon(f.status)} ${f.status}</span></td>
+            <td style="padding:8px 20px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-secondary)">${escHtml(f.key)}</td>
+            <td style="padding:8px 20px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--removed);max-width:300px;word-break:break-all">
+              ${f.sourceVal ? escHtml(truncate(f.sourceVal, 120)) : '<i style="color:var(--text-muted)">—</i>'}
+            </td>
+            <td style="padding:8px 20px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--added);max-width:300px;word-break:break-all">
+              ${f.targetVal ? escHtml(truncate(f.targetVal, 120)) : '<i style="color:var(--text-muted)">—</i>'}
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      if (sameFields.length > 0) {
+        fieldRows += `
+          <tr>
+            <td colspan="4" style="padding:8px 20px;font-size:11px;color:var(--text-muted);border-top:1px solid var(--border-muted)">
+              + ${sameFields.length} fields không thay đổi
+            </td>
+          </tr>
+        `;
+      }
+    }
+  }
+
+  const hasDetails = item.status === 'modified' && fieldRows;
+
+  return `
+    <div style="border-bottom:1px solid var(--border-muted)">
+      <div
+        style="display:flex;align-items:center;gap:12px;padding:14px 20px;cursor:${hasDetails ? 'pointer' : 'default'};transition:background 0.2s"
+        onmouseover="this.style.background='var(--bg-tertiary)'"
+        onmouseout="this.style.background=''"
+        onclick="${hasDetails ? `toggleComp('${uid}')` : ''}"
+      >
+        ${pill}
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:500;color:var(--text-primary);font-size:13px">${escHtml(item.key)}</span>
+        ${hasDetails ? `<span style="margin-left:auto;color:var(--text-muted);font-size:12px">${item.fieldDiffs.filter(f=>f.status!=='same').length} field changes</span><span id="chev-${uid}" style="color:var(--text-muted);transition:transform 0.3s">▼</span>` : ''}
+      </div>
+      ${hasDetails ? `
+        <div id="${uid}" style="display:none;border-top:1px solid var(--border-muted);background:var(--bg-primary)">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="background:var(--bg-tertiary)">
+                <th style="padding:8px 20px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);width:120px">Status</th>
+                <th style="padding:8px 20px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)">Field</th>
+                <th style="padding:8px 20px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--removed)">Source</th>
+                <th style="padding:8px 20px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--added)">Target</th>
+              </tr>
+            </thead>
+            <tbody>${fieldRows}</tbody>
+          </table>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+// ========================================
+// HELPERS
+// ========================================
+function statusIcon(status) {
+  return { added: '✅', removed: '❌', modified: '✏️', same: '〰️' }[status] || '';
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function truncate(str, len) {
+  if (!str) return '';
+  return str.length > len ? str.slice(0, len) + '…' : str;
+}
+
+function toggleSection(id) {
+  const el = document.getElementById(id);
+  const chev = document.getElementById('chevron-' + id);
+  if (!el) return;
+  const isVisible = el.style.display !== 'none';
+  el.style.display = isVisible ? 'none' : '';
+  chev.classList.toggle('open', !isVisible);
+}
+
+function toggleComp(id) {
+  const el = document.getElementById(id);
+  const chev = document.getElementById('chev-' + id);
+  if (!el) return;
+  const isVisible = el.style.display !== 'none';
+  el.style.display = isVisible ? 'none' : '';
+  if (chev) chev.style.transform = isVisible ? '' : 'rotate(180deg)';
+}
+
+function applyFilter(filter, btn) {
+  state.currentFilter = filter;
+  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  renderResults();
+}
+
+function applySearch(val) {
+  state.currentSearch = val;
+  renderResults();
+}
+</script>
+</body>
+</html>
