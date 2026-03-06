@@ -704,10 +704,27 @@
     <div class="logo-icon">🔍</div>
     <div>
       <div class="logo-text">Directus Schema Diff</div>
-      <div class="logo-sub">So sánh cấu hình giữa các môi trường</div>
+      <div class="logo-sub" data-i18n="logo_sub">So sánh cấu hình giữa các môi trường</div>
     </div>
   </div>
+  
+  <select id="langSelect" onchange="changeLanguage(this.value)" style="
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    outline: none;
+    margin-right: 12px;
+  ">
+    <option value="vi">🇻🇳 Tiếng Việt</option>
+    <option value="en">🇬🇧 English</option>
+  </select>
   <div class="header-actions" id="headerStats" style="display:none">
+
     <span class="badge badge-added" id="badgeAdded">0 Added</span>
     <span class="badge badge-removed" id="badgeRemoved">0 Removed</span>
     <span class="badge badge-modified" id="badgeModified">0 Modified</span>
@@ -722,8 +739,8 @@
   <div class="upload-panel source" id="sourcePanel" onclick="document.getElementById('sourceFile').click()">
     <input type="file" id="sourceFile" accept=".ts,.js,.txt" onchange="handleFile('source', this)" />
     <div class="upload-icon">📄</div>
-    <div class="upload-label">File Nguồn (Source)</div>
-    <div class="upload-hint">Môi trường cơ sở / Production schema</div>
+    <div class="upload-label" data-i18n="source_title">File Nguồn (Source)</div>
+    <div class="upload-hint" data-i18n="source_hint">Môi trường cơ sở / Production schema</div>
     <div class="file-status no-file" id="sourceStatus">
       <span>📁</span> Chưa chọn file
     </div>
@@ -736,8 +753,8 @@
   <div class="upload-panel target" id="targetPanel" onclick="document.getElementById('targetFile').click()">
     <input type="file" id="targetFile" accept=".ts,.js,.txt" onchange="handleFile('target', this)" />
     <div class="upload-icon">📄</div>
-    <div class="upload-label">File Đích (Target)</div>
-    <div class="upload-hint">Môi trường cần kiểm tra / Staging schema</div>
+    <div class="upload-label" data-i18n="target_title">File Đích (Target)</div>
+    <div class="upload-hint" data-i18n="target_hint">Môi trường cần kiểm tra / Staging schema</div>
     <div class="file-status no-file" id="targetStatus">
       <span>📁</span> Chưa chọn file
     </div>
@@ -747,11 +764,11 @@
 <!-- ACTIONS -->
 <div class="action-bar" id="actionBar">
   <button class="btn-compare" id="compareBtn" onclick="runCompare()" disabled>
-    ⚡ So sánh Schema
+    <span data-i18n="btn_compare">⚡ So sánh Schema</span>
   </button>
 
   <div class="filter-tabs" id="filterTabs" style="display:none">
-    <button class="filter-tab active" onclick="applyFilter('all', this)">Tất cả</button>
+    <button class="filter-tab active" onclick="applyFilter('all', this)" data-i18n="filter_all">Tất cả</button>
     <button class="filter-tab" onclick="applyFilter('added', this)">✅ Added</button>
     <button class="filter-tab" onclick="applyFilter('removed', this)">❌ Removed</button>
     <button class="filter-tab" onclick="applyFilter('modified', this)">✏️ Modified</button>
@@ -760,7 +777,7 @@
 
   <div class="search-box" id="searchBox" style="display:none">
     <span class="search-icon">🔎</span>
-    <input type="text" class="search-input" id="searchInput" placeholder="Tìm theo tên..." oninput="applySearch(this.value)" />
+    <input type="text" class="search-input" id="searchInput" placeholder="Tìm theo tên..." data-i18n="search_placeholder" oninput="applySearch(this.value)" />
   </div>
 
   <!-- Share button (hiện sau khi có kết quả) -->
@@ -862,6 +879,180 @@
 // ========================================
 // STATE
 // ========================================
+const I18N = {
+  vi: {
+    "logo_sub": "So sánh cấu hình giữa các môi trường",
+    "btn_compare": "⚡ So sánh Schema",
+    "filter_all": "Tất cả",
+    "search_placeholder": "Tìm theo tên...",
+    "btn_share": "🔗 Tạo link chia sẻ",
+    "btn_copy": "📋 Copy",
+    "btn_open_link": "🌐 Mở link",
+    "hint_title": "Upload 2 file schema.ts để bắt đầu so sánh",
+    "hint_desc": "Công cụ sẽ phân tích <strong>type Schema</strong> và <strong>interface components</strong>",
+    "source_title": "File Nguồn (Source)",
+    "source_hint": "Môi trường cơ sở / Production schema",
+    "target_title": "File Đích (Target)",
+    "target_hint": "Môi trường cần kiểm tra / Staging schema",
+    "no_file": "Chưa chọn file",
+    "loading_analyze": "Đang phân tích...",
+    "loading_share": "Đang tải bản so sánh được chia sẻ...",
+    "error_analyze": "Lỗi phân tích",
+    "error_not_found": "Không tìm thấy",
+    "summary_added": "Collections / Fields được thêm",
+    "summary_removed": "Collections / Fields bị xóa",
+    "summary_modified": "Collections / Fields thay đổi",
+    "schema_desc": "Danh sách collections trong Schema",
+    "comp_desc": "Định nghĩa chi tiết từng schema/collection",
+    "no_diff": "✅ Không có sự khác biệt (hoặc không có kết quả khớp filter)",
+    "th_status": "Trạng thái",
+    "th_key": "Collection / Key",
+    "th_source": "Source (file nguồn)",
+    "th_target": "Target (file đích)",
+    "no_field_diff": "Không có thay đổi về fields",
+    "same_fields_suffix": " fields không thay đổi",
+    "toast_fs_not_ready": "Firestore chưa sẵn sàng, thử lại sau.",
+    "btn_saving": "⏳ Đang lưu...",
+    "btn_link_new": "✅ Link mới",
+    "btn_link_old": "♻️ Link cũ (tái sử dụng)",
+    "toast_link_new": "Link chia sẻ đã được tạo mới!",
+    "toast_link_old": "Bản so sánh này đã tồn tại, tái sử dụng link cũ!",
+    "toast_save_err": "Lỗi khi lưu: ",
+    "toast_copy_ok": "Đã copy link vào clipboard!",
+    "share_banner_title": "Chế độ xem chia sẻ",
+    "share_banner_time": "Tạo lúc",
+    "btn_new_compare": "➕ So sánh mới",
+    "theme_dark": "Chuyển Dark mode",
+    "theme_light": "Chuyển Light mode"
+  },
+  en: {
+    "logo_sub": "Compare configurations between environments",
+    "btn_compare": "⚡ Compare Schemas",
+    "filter_all": "All",
+    "search_placeholder": "Search by name...",
+    "btn_share": "🔗 Create shareable link",
+    "btn_copy": "📋 Copy",
+    "btn_open_link": "🌐 Open link",
+    "hint_title": "Upload 2 schema.ts files to start comparing",
+    "hint_desc": "The tool will analyze <strong>type Schema</strong> and <strong>interface components</strong>",
+    "source_title": "Source File",
+    "source_hint": "Base environment / Production schema",
+    "target_title": "Target File",
+    "target_hint": "Environment to check / Staging schema",
+    "no_file": "No file selected",
+    "loading_analyze": "Analyzing...",
+    "loading_share": "Loading shared comparison...",
+    "error_analyze": "Analysis Error",
+    "error_not_found": "Not Found",
+    "summary_added": "Collections / Fields added",
+    "summary_removed": "Collections / Fields removed",
+    "summary_modified": "Collections / Fields modified",
+    "schema_desc": "List of collections in Schema",
+    "comp_desc": "Detailed definitions for each schema/collection",
+    "no_diff": "✅ No differences found (or no filter matches)",
+    "th_status": "Status",
+    "th_key": "Collection / Key",
+    "th_source": "Source",
+    "th_target": "Target",
+    "no_field_diff": "No field changes",
+    "same_fields_suffix": " fields unchanged",
+    "toast_fs_not_ready": "Firestore is not ready, please try again later.",
+    "btn_saving": "⏳ Saving...",
+    "btn_link_new": "✅ New link",
+    "btn_link_old": "♻️ Old link (reused)",
+    "toast_link_new": "Shareable link created successfully!",
+    "toast_link_old": "This comparison already exists, reusing the old link!",
+    "toast_save_err": "Error saving: ",
+    "toast_copy_ok": "Link copied to clipboard!",
+    "share_banner_title": "Shared View",
+    "share_banner_time": "Created at",
+    "btn_new_compare": "➕ New comparison",
+    "theme_dark": "Switch to Dark mode",
+    "theme_light": "Switch to Light mode"
+  }
+};
+
+let currentLang = localStorage.getItem('lang') || 'vi';
+
+// Apply language from URL param if present
+const startupUrlParams = new URLSearchParams(location.search);
+if (startupUrlParams.has('lang')) {
+  currentLang = startupUrlParams.get('lang');
+  if (currentLang !== 'en' && currentLang !== 'vi') currentLang = 'vi';
+  localStorage.setItem('lang', currentLang);
+}
+
+function __(key) {
+  return I18N[currentLang][key] || key;
+}
+
+window.__ = __; // For dev debugging inline
+
+function changeLanguage(lang) {
+  currentLang = lang;
+  localStorage.setItem('lang', lang);
+  
+  // Update URL to include the new lang param without reloading
+  const url = new URL(location.href);
+  url.searchParams.set('lang', lang);
+  window.history.replaceState({}, '', url);
+  
+  applyTranslations();
+  
+  // Re-render
+  if (state.result && !state.isSharedView) {
+    renderResults();
+  } else if (state.isSharedView) {
+    // Shared view redraws completely to translate texts
+    renderResults();
+  }
+  
+  // Re-render empty state text specifically
+  if (!state.result && !state.isSharedView) {
+      document.getElementById('emptyHint').innerHTML = `
+        <div class="emoji">📋</div>
+        <h3>${__('hint_title')}</h3>
+        <p>${__('hint_desc')}</p>
+      `;
+  }
+}
+
+function applyTranslations() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (el.tagName === 'INPUT' && el.type === 'text') {
+      el.placeholder = __(key);
+    } else {
+      if (key === 'btn_share' && el.classList.contains('saving')) {
+        el.innerHTML = __('btn_saving');
+      } else if (key === 'btn_share' && document.getElementById('shareUrlBar').style.display === 'block') {
+         el.innerHTML = el.innerHTML.includes('✅') ? __('btn_link_new') : __('btn_link_old');
+      } else {
+         el.innerHTML = __(key);
+      }
+    }
+  });
+  
+  const btnCompare = document.getElementById('compareBtn');
+  if (btnCompare) btnCompare.innerHTML = __('btn_compare');
+  
+  const noFileSpans = document.querySelectorAll('.no-file');
+  noFileSpans.forEach(el => {
+    if (el.innerText.includes('Chưa chọn file') || el.innerText.includes('No file selected')) {
+        el.innerHTML = `<span>📁</span> ${__('no_file')}`;
+    }
+  });
+  
+  const langSelect = document.getElementById('langSelect');
+  if (langSelect) langSelect.value = currentLang;
+  
+  document.getElementById('themeToggle').title = document.body.classList.contains('light') ? __('theme_dark') : __('theme_light');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    applyTranslations();
+});
+
 const state = {
   source: null,
   target: null,
@@ -1155,7 +1346,7 @@ function runCompare() {
       // Show share button, reset to default state
       const shareBtn = document.getElementById('shareBtn');
       shareBtn.style.display = 'flex';
-      shareBtn.innerHTML = '🔗 Tạo link chia sẻ';
+      shareBtn.innerHTML = __('btn_share');
       shareBtn.onclick = saveAndShare;
       shareBtn.disabled = false;
       shareBtn.classList.remove('saving');
@@ -1305,8 +1496,8 @@ function renderResults() {
       </div>
     </div>
 
-    ${renderSection('schema', 'type Schema', 'Danh sách collections trong Schema', filteredSchema, false)}
-    ${renderSection('components', 'interface components { schemas }', 'Định nghĩa chi tiết từng schema/collection', filteredComponents, true)}
+    ${renderSection('schema', 'type Schema', __('schema_desc'), filteredSchema, false)}
+    ${renderSection('components', 'interface components { schemas }', __('comp_desc'), filteredComponents, true)}
   `;
 }
 
@@ -1330,10 +1521,10 @@ function renderSection(type, title, desc, items, showFieldDiff) {
       <table class="diff-table">
         <thead>
           <tr>
-            <th style="width:180px">Trạng thái</th>
-            <th>Collection / Key</th>
-            <th>Source (file nguồn)</th>
-            <th>Target (file đích)</th>
+            <th style="width:180px">${__('th_status')}</th>
+            <th>${__('th_key')}</th>
+            <th>${__('th_source')}</th>
+            <th>${__('th_target')}</th>
           </tr>
         </thead>
         <tbody>
@@ -1519,14 +1710,14 @@ let _shareUrl = null; // current generated URL for copy
  */
 async function saveAndShare() {
   if (!state.result || !window.__saveToFirestore) {
-    showToast('error', '⚠️', 'Firestore chưa sẵn sàng, thử lại sau.');
+    showToast('error', '⚠️', __('toast_fs_not_ready'));
     return;
   }
 
   const btn = document.getElementById('shareBtn');
   btn.disabled = true;
   btn.classList.add('saving');
-  btn.innerHTML = '⏳ Đang lưu...';
+  btn.innerHTML = __('btn_saving');
 
   try {
     const { schemaDiff, componentsDiff } = state.result;
@@ -1551,12 +1742,12 @@ async function saveAndShare() {
     };
 
     const { id, isNew } = await window.__saveToFirestore(payload);
-    const url = `${location.origin}${location.pathname}?id=${id}`;
+    const url = `${location.origin}${location.pathname}?id=${id}&lang=${currentLang}`;
     state.shareUrl = url;
     _shareUrl = url;
 
     // Update button to "copy" state
-    btn.innerHTML = isNew ? '✅ Link mới' : '♻️ Link cũ (tái sử dụng)';
+    btn.innerHTML = isNew ? __('btn_link_new') : __('btn_link_old');
     btn.disabled = false;
     btn.classList.remove('saving');
     btn.onclick = copyShareUrl;
@@ -1566,15 +1757,15 @@ async function saveAndShare() {
     urlInput.value = url;
     document.getElementById('shareUrlBar').style.display = 'block';
 
-    const msg = isNew ? 'Link chia sẻ đã được tạo mới!' : 'Bản so sánh này đã tồn tại, tái sử dụng link cũ!';
+    const msg = isNew ? __('toast_link_new') : __('toast_link_old');
     showToast('success', isNew ? '🔗' : '♻️', msg, url);
 
     if (isNew && window.__trackCompare) window.__trackCompare();
   } catch (err) {
     btn.disabled = false;
     btn.classList.remove('saving');
-    btn.innerHTML = '🔗 Tạo link chia sẻ';
-    showToast('error', '❌', 'Lỗi khi lưu: ' + err.message);
+    btn.innerHTML = __('btn_share');
+    showToast('error', '❌', __('toast_save_err') + err.message);
   }
 }
 
@@ -1582,7 +1773,7 @@ function copyShareUrl() {
   const url = document.getElementById('shareUrlInput')?.value || _shareUrl || state.shareUrl;
   if (!url) return;
   navigator.clipboard.writeText(url).then(() => {
-    showToast('success', '📋', 'Đã copy link vào clipboard!');
+    showToast('success', '📋', __('toast_copy_ok'));
   });
 }
 
@@ -1617,7 +1808,7 @@ function toggleTheme() {
   const isLight = document.body.classList.toggle('light');
   const btn = document.getElementById('themeToggle');
   btn.textContent = isLight ? '🌞' : '🌙';
-  btn.title = isLight ? 'Chuyển Dark mode' : 'Chuyển Light mode';
+  btn.title = isLight ? __('theme_dark') : __('theme_light');
   localStorage.setItem('theme', isLight ? 'light' : 'dark');
 }
 
@@ -1627,7 +1818,7 @@ function toggleTheme() {
   if (saved === 'light') {
     document.body.classList.add('light');
     const btn = document.getElementById('themeToggle');
-    if (btn) { btn.textContent = '🌞'; btn.title = 'Chuyển Dark mode'; }
+    if (btn) { btn.textContent = '🌞'; btn.title = __('theme_dark'); }
   }
 })();
 
@@ -1647,7 +1838,7 @@ function renderSharedView(data, docId) {
       <span>🔗</span>
       <span class="share-meta">
         <strong>Chế độ xem chia sẻ</strong> —
-        Tạo lúc ${new Date(data.createdAt).toLocaleString('vi-VN')}
+        ${__('share_banner_time')} ${new Date(data.createdAt).toLocaleString('vi-VN')}
       </span>
       <span class="badge badge-added" style="margin-left:8px">${data.stats?.added || 0} Added</span>
       <span class="badge badge-removed">${data.stats?.removed || 0} Removed</span>
